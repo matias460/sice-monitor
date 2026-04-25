@@ -1,0 +1,46 @@
+name: SICE Monitor
+
+on:
+  schedule:
+    # Cada 2 horas, lunes a viernes (horarios laborales UY UTC-3)
+    - cron: '0 */2 * * 1-5'
+  workflow_dispatch:  # permite correr manualmente desde la UI
+
+permissions:
+  contents: write  # para commitear notified.json
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run SICE monitor
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        run: python sice_monitor.py
+
+      - name: Commit notified.json if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notified.json
+          if git diff --staged --quiet; then
+            echo "No changes to notified.json"
+          else
+            git commit -m "chore: update notified IDs"
+            git push
+          fi
